@@ -1,4 +1,5 @@
 <p>mocha -u tdd -R spec qa/tests-unit.js</p>
+<a href="http://preshing.com/20110811/xkcd-password-generator/">Generetor</a>   
 <h3>Request obj</h3>
 <ol>
     <li>
