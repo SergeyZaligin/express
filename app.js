@@ -3,9 +3,16 @@ const app = express();
 var fortune = require('./lib/fortune.js');
 var weather = require('./lib/weather');
 var express_handlebars_sections = require('express-handlebars-sections');
-var formidable = require('formidable' );
+var formidable = require('formidable');
+var credentials = require('./credentials.js');
 
 const PORT = 3000;
+// Немного измененная версия официального регулярного выражения
+// W3C HTML5 для электронной почты:
+// https://html.spec.whatwg.org/multipage/forms.html#valid-e-mail-address
+const VALID_EMAIL_REGEX = new RegExp('^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@' +
+'[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?' +
+'(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$');
 
 app.set('port', process.env.PORT || PORT);
 app.set('view cache', false);
@@ -19,6 +26,12 @@ app.set('view engine', 'handlebars');
 express_handlebars_sections(handlebars);
 
 app.use(express.static(__dirname + '/public'));
+app.use(require('cookie-parser')(credentials.cookieSecret));
+app.use(require('express-session')({
+    resave: false,
+    saveUninitialized: false,
+    secret: credentials.cookieSecret,
+}));
 app.use(require('body-parser').urlencoded({
     extended: true
 }));
@@ -32,14 +45,28 @@ app.use(function (req, res, next) {
     res.locals.partials.weatherContext = weather.getWeatherData();
     next();
 });
-
+app.use(function (req, res, next) {
+    // Если имеется экстренное сообщение,
+    // переместим его в контекст, а затем удалим
+    res.locals.flash = req.session.flash;
+    delete req.session.flash;
+    next();
+});
 // Отключить заголовки
 app.disable('x-powered-by');
 
 
 
 app.get('/', function (req, res) {
-    res.render('home');
+    res.cookie('monster', 'nom nom');
+    res.cookie('signed_monster', 'nom nom', {
+        signed: true
+    });
+    var monster = req.cookies.monster;
+    var signedMonster = req.signedCookies.signed_monster;
+    res.render('home', {
+        cookie: monster
+    });
 });
 
 app.get('/contest/vacation-photo', function (req, res) {
