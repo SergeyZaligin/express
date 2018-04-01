@@ -9,7 +9,7 @@ const axios = require('axios');
 const connect = require('connect');
 const nodemailer = require('nodemailer');
 
-
+function wrappMail(){
 // Generate test SMTP service account from ethereal.email
 // Only needed if you don't have a real mail account for testing
 nodemailer.createTestAccount((err, account) => {
@@ -46,14 +46,19 @@ nodemailer.createTestAccount((err, account) => {
         // Preview URL: https://ethereal.email/message/WaQKMgKddxQDoou...
     });
 });
+}
 
-axios.get('https://api.tvmaze.com/search/shows?q=batman')
+
+function wrappAxios(){
+    axios.get('https://api.tvmaze.com/search/shows?q=batman')
     .then(function (response) {
         console.log(response.data);
     })
     .catch(function (error) {
         console.log(error);
     });
+}
+
 
 
 const PORT = 3000;
@@ -222,5 +227,7 @@ app.use(function (err, req, res, next) {
 });
 
 app.listen(app.get('port'), function () {
-    console.log('Express запущен на http://localhost:' + app.get('port') + '; нажмите Ctrl+C для завершения.');
+    console.log('Express запущено в режиме ' + app.get('env') +
+        ' на http://localhost:' + app.get('port') +
+        '; нажмите Ctrl+C для завершения.');
 });
