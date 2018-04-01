@@ -8,32 +8,41 @@ const credentials = require('./credentials.js');
 const axios = require('axios');
 const connect = require('connect');
 const nodemailer = require('nodemailer');
+const fs = require('fs');
+
+require('./models/db');
 require('./app_cluster.js');
 
 switch (app.get('env')) {
     case 'development':
-        // сжатое многоцветное журналирование для
-        // разработки
+        // сжатое многоцветное журналирование для разработки
         app.use(require('morgan')('dev'));
         break;
     case 'production':
-        // модуль 'express-logger' поддерживает ежедневное
-        // чередование файлов журналов
+        // модуль 'express-logger' поддерживает ежедневное чередование файлов журналов
         app.use(require('express-logger')({
             path: __dirname + '/log/requests.log'
         }));
         break;
 }
 
+// Проверяем, существует ли каталог
+var dataDir = __dirname + '/data';
+var vacationPhotoDir = dataDir + '/vacation-photo';
+fs.existsSync(dataDir) || fs.mkdirSync(dataDir);
+fs.existsSync(vacationPhotoDir) || fs.mkdirSync(vacationPhotoDir);
+
+function saveContestEntry(contestName, email, year, month, photoPath) {
+    // TODO... это будет добавлено позднее
+}
+
 function wrappMail() {
-    // Generate test SMTP service account from ethereal.email
-    // Only needed if you don't have a real mail account for testing
+    // Generate test SMTP service account from ethereal.email Only needed if you
+    // don't have a real mail account for testing
     nodemailer.createTestAccount((err, account) => {
         // create reusable transporter object using the default SMTP transport
         let transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 465,
-            secure: true, // true for 465, false for other ports
+            host: 'smtp.gmail.com', port: 465, secure: true, // true for 465, false for other ports
             auth: {
                 user: credentials.gmail.user, // generated ethereal user
                 pass: credentials.gmail.password // generated ethereal password
@@ -58,15 +67,15 @@ function wrappMail() {
             // Preview only available when sending through an Ethereal account
             console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
 
-            // Message sent: <b658f8ca-6296-ccf4-8306-87d57a0b4321@example.com>
-            // Preview URL: https://ethereal.email/message/WaQKMgKddxQDoou...
+            // Message sent: <b658f8ca-6296-ccf4-8306-87d57a0b4321@example.com> Preview URL:
+            // https://ethereal.email/message/WaQKMgKddxQDoou...
         });
     });
 }
 
-
 function wrappAxios() {
-    axios.get('https://api.tvmaze.com/search/shows?q=batman')
+    axios
+        .get('https://api.tvmaze.com/search/shows?q=batman')
         .then(function (response) {
             console.log(response.data);
         })
@@ -75,57 +84,45 @@ function wrappAxios() {
         });
 }
 
-
-
 const PORT = 3000;
-// Немного измененная версия официального регулярного выражения
-// W3C HTML5 для электронной почты:
+// Немного измененная версия официального регулярного выражения W3C HTML5 для
+// электронной почты:
 // https://html.spec.whatwg.org/multipage/forms.html#valid-e-mail-address
-const VALID_EMAIL_REGEX = new RegExp('^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@' +
-    '[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?' +
-    '(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$');
+const VALID_EMAIL_REGEX = new RegExp('^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])' +
+        '?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$');
 
 app.set('port', process.env.PORT || PORT);
 app.set('view cache', false);
 
 // Установка механизма представления handlebars
-var handlebars = require('express-handlebars').create({
-    defaultLayout: 'main'
-});
+var handlebars = require('express-handlebars').create({defaultLayout: 'main'});
 app.engine('handlebars', handlebars.engine);
 app.set('view engine', 'handlebars');
 express_handlebars_sections(handlebars);
 app.use(express.static(__dirname + '/public'));
 app.use(require('cookie-parser')(credentials.cookieSecret));
-app.use(require('express-session')({
-    resave: false,
-    saveUninitialized: false,
-    secret: credentials.cookieSecret,
-}));
-app.use(require('body-parser').urlencoded({
-    extended: true
-}));
+app.use(require('express-session')({resave: false, saveUninitialized: false, secret: credentials.cookieSecret}));
+app.use(require('body-parser').urlencoded({extended: true}));
 app.use(function (req, res, next) {
     res.locals.showTests = app.get('env') !== 'production' && req.query.test === '1';
     next();
 });
 app.use(function (req, res, next) {
-    if (!res.locals.partials)
+    if (!res.locals.partials) 
         res.locals.partials = {};
     res.locals.partials.weatherContext = weather.getWeatherData();
     next();
 });
 app.use(function (req, res, next) {
-    // Если имеется экстренное сообщение,
-    // переместим его в контекст, а затем удалим
+    // Если имеется экстренное сообщение, переместим его в контекст, а затем удалим
     res.locals.flash = req.session.flash;
     delete req.session.flash;
     next();
 });
 app.use(function (req, res, next) {
     var cluster = require('cluster');
-    if (cluster.isWorker) console.log('Исполнитель %d получил запрос ',
-        cluster.worker.id);
+    if (cluster.isWorker) 
+        console.log('Исполнитель %d получил запрос ', cluster.worker.id);
     next();
 });
 // Отключить заголовки
@@ -145,18 +142,18 @@ app.use(function (req, res, next) {
             }, 5000);
             // Отключение от кластера
             var worker = require('cluster').worker;
-            if (worker) worker.disconnect();
+            if (worker) 
+                worker.disconnect();
+            
             // Прекращение принятия новых запросов
             server.close();
             try {
-                // Попытка использовать маршрутизацию
-                // ошибок Express
+                // Попытка использовать маршрутизацию ошибок Express
                 next(err);
             } catch (err) {
-                // Если маршрутизация ошибок Express не сработала,
-                // пробуем выдать текстовый ответ Node
-                console.error('Сбой механизма обработки ошибок ' +
-                    'Express .\n', err.stack);
+                // Если маршрутизация ошибок Express не сработала, пробуем выдать текстовый
+                // ответ Node
+                console.error('Сбой механизма обработки ошибок Express .\n', err.stack);
                 res.statusCode = 500;
                 res.setHeader('content-type', 'text/plain');
                 res.end('Ошибка сервера.');
@@ -172,22 +169,15 @@ app.use(function (req, res, next) {
     domain.run(next);
 });
 
-// app.get('/epic-fail', function (req, res) {
-//     process.nextTick(function () {
-//         throw new Error('Бабах!');
-//     });
-// });
+// app.get('/epic-fail', function (req, res) {     process.nextTick(function ()
+// {         throw new Error('Бабах!');     }); });
 
 app.get('/', function (req, res) {
     res.cookie('monster', 'nom nom');
-    res.cookie('signed_monster', 'nom nom', {
-        signed: true
-    });
+    res.cookie('signed_monster', 'nom nom', {signed: true});
     var monster = req.cookies.monster;
     var signedMonster = req.signedCookies.signed_monster;
-    res.render('home', {
-        cookie: monster
-    });
+    res.render('home', {cookie: monster});
 });
 
 app.get('/contest/vacation-photo', function (req, res) {
@@ -197,25 +187,42 @@ app.get('/contest/vacation-photo', function (req, res) {
         month: now.getMonth()
     });
 });
-
 app.post('/contest/vacation-photo/:year/:month', function (req, res) {
     var form = new formidable.IncomingForm();
     form.parse(req, function (err, fields, files) {
-        if (err) return res.redirect(303, '/error');
-        console.log('received fields:');
-        console.log(fields);
-        console.log('received files:');
-        console.log(files);
-        res.redirect(303, '/thank-you');
+        if (err) {
+            res.session.flash = {
+                type: 'danger',
+                intro: 'Упс!',
+                message: 'Во время обработки отправленной Вами формы произошла ошибка. Пожалуйста, попробу' +
+                        'йте еще раз.'
+            };
+            return res.redirect(303, '/contest/vacation-photo');
+        }
+        var photo = files.photo;
+        var dir = vacationPhotoDir + '/' + Date.now();
+        var path = dir + '/' + photo.name;
+        fs.mkdirSync(dir);
+        fs.renameSync(photo.path, dir + '/' + photo.name);
+        saveContestEntry('vacation-photo', fields.email, req.params.year, req.params.month, path);
+        req.session.flash = {
+            type: 'success',
+            intro: 'Удачи!',
+            message: 'Вы стали участником конкурса.'
+        };
+        return res.redirect(303, '/contest/vacation-photo/entries');
     });
 });
+// app.post('/contest/vacation-photo/:year/:month', function (req, res) {
+// var form = new formidable.IncomingForm();     form.parse(req, function (err,
+// fields, files) {         if (err) return res.redirect(303, '/error');
+// console.log('received fields:');         console.log(fields);
+// console.log('received files:');         console.log(files);
+// res.redirect(303, '/thank-you');     }); });
 
 app.get('/newsletter', function (req, res) {
-    // мы изучим CSRF позже... сейчас мы лишь
-    // заполняем фиктивное значение
-    res.render('newsletter', {
-        csrf: 'CSRF token goes here'
-    });
+    // мы изучим CSRF позже... сейчас мы лишь заполняем фиктивное значение
+    res.render('newsletter', {csrf: 'CSRF token goes here'});
 });
 
 app.post('/process', function (req, res) {
@@ -229,9 +236,7 @@ app.post('/process', function (req, res) {
 app.post('/processs', function (req, res) {
     if (req.xhr || req.accepts('json,html') === 'json') {
         // если здесь есть ошибка, то мы должны отправить { error: 'описание ошибки' }
-        res.send({
-            success: true
-        });
+        res.send({success: true});
     } else {
         // если бы была ошибка, нам нужно было бы перенаправлять на страницу ошибки
         res.redirect(303, '/thank-you');
@@ -262,19 +267,14 @@ app.get('/nursery-rhyme', function (req, res) {
 });
 
 app.get('/data/nursery-rhyme', function (req, res) {
-    res.json({
-        animal: 'squirrel',
-        bodyPart: 'tail',
-        adjective: 'bushy',
-        noun: 'heck'
-    });
+    res.json({animal: 'squirrel', bodyPart: 'tail', adjective: 'bushy', noun: 'heck'});
 });
 
 // Set headers
 app.get('/headers', function (req, res) {
     res.set('Content-Type', 'text/plain');
     var s = '';
-    for (var name in req.headers)
+    for (var name in req.headers) 
         s += name + ': ' + req.headers[name] + '\n';
     res.send(s);
 });
@@ -292,23 +292,18 @@ app.use(function (err, req, res, next) {
     res.render('500');
 });
 
-
-
 function startServer() {
-    app.listen(app.get('port'), function () {
-        console.log('Express запущен в режиме ' + app.get('env') +
-            ' на http://localhost:' + app.get('port') +
-            '; нажмите Ctrl+C для завершения.');
-    });
+    app
+        .listen(app.get('port'), function () {
+            console.log('Express запущен в режиме ' + app.get('env') + ' на http://localhost:' + app.get('port') + '; нажмите Ctrl+C для завершения.');
+        });
 }
 
 if (require.main === module) {
-    // Приложение запускается непосредственно;
-    // запускаем сервер приложения
+    // Приложение запускается непосредственно; запускаем сервер приложения
     startServer();
 } else {
-    // Приложение импортируется как модуль
-    // посредством "require":
-    // экспортируем функцию для создания сервера
+    // Приложение импортируется как модуль посредством "require": экспортируем
+    // функцию для создания сервера
     module.exports = startServer;
 }
