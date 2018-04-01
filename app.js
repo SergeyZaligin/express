@@ -126,12 +126,57 @@ app.use(function (req, res, next) {
     var cluster = require('cluster');
     if (cluster.isWorker) console.log('Исполнитель %d получил запрос ',
         cluster.worker.id);
-        next();
+    next();
 });
 // Отключить заголовки
 app.disable('x-powered-by');
 
+app.use(function (req, res, next) {
+    // создаем домен для этого запроса
+    var domain = require('domain').create();
+    // обрабатываем ошибки на этом домене
+    domain.on('error', function (err) {
+        console.error('ПЕРЕХВАЧЕНА ОШИБКА ДОМЕНА\n', err.stack);
+        try {
+            // Отказобезопасный останов через 5 секунд
+            setTimeout(function () {
+                console.error(' Отказобезопасный останов.');
+                process.exit(1);
+            }, 5000);
+            // Отключение от кластера
+            var worker = require('cluster').worker;
+            if (worker) worker.disconnect();
+            // Прекращение принятия новых запросов
+            server.close();
+            try {
+                // Попытка использовать маршрутизацию
+                // ошибок Express
+                next(err);
+            } catch (err) {
+                // Если маршрутизация ошибок Express не сработала,
+                // пробуем выдать текстовый ответ Node
+                console.error('Сбой механизма обработки ошибок ' +
+                    'Express .\n', err.stack);
+                res.statusCode = 500;
+                res.setHeader('content-type', 'text/plain');
+                res.end('Ошибка сервера.');
+            }
+        } catch (err) {
+            console.error('Не могу отправить ответ 500.\n', err.stack);
+        }
+    });
+    // Добавляем объекты запроса и ответа в домен
+    domain.add(req);
+    domain.add(res);
+    // Выполняем оставшуюся часть цепочки запроса в домене
+    domain.run(next);
+});
 
+// app.get('/epic-fail', function (req, res) {
+//     process.nextTick(function () {
+//         throw new Error('Бабах!');
+//     });
+// });
 
 app.get('/', function (req, res) {
     res.cookie('monster', 'nom nom');
@@ -246,6 +291,8 @@ app.use(function (err, req, res, next) {
     res.status(500);
     res.render('500');
 });
+
+
 
 function startServer() {
     app.listen(app.get('port'), function () {
