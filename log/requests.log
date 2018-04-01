@@ -1,0 +1,2 @@
+::1 - - [Sun, 01 Apr 2018 08:49:40 GMT] "GET /nursery-rhyme HTTP/1.1" 200 3219 "http://localhost:3000/about" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.62 Safari/537.36"
+::1 - - [Sun, 01 Apr 2018 08:49:41 GMT] "GET /img/logo.png HTTP/1.1" 304 - "http://localhost:3000/nursery-rhyme" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.62 Safari/537.36"

@@ -8,55 +8,71 @@ const credentials = require('./credentials.js');
 const axios = require('axios');
 const connect = require('connect');
 const nodemailer = require('nodemailer');
+require('./app_cluster.js');
 
-function wrappMail(){
-// Generate test SMTP service account from ethereal.email
-// Only needed if you don't have a real mail account for testing
-nodemailer.createTestAccount((err, account) => {
-    // create reusable transporter object using the default SMTP transport
-    let transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true, // true for 465, false for other ports
-        auth: {
-            user: credentials.gmail.user, // generated ethereal user
-            pass: credentials.gmail.password // generated ethereal password
-        }
+switch (app.get('env')) {
+    case 'development':
+        // сжатое многоцветное журналирование для
+        // разработки
+        app.use(require('morgan')('dev'));
+        break;
+    case 'production':
+        // модуль 'express-logger' поддерживает ежедневное
+        // чередование файлов журналов
+        app.use(require('express-logger')({
+            path: __dirname + '/log/requests.log'
+        }));
+        break;
+}
+
+function wrappMail() {
+    // Generate test SMTP service account from ethereal.email
+    // Only needed if you don't have a real mail account for testing
+    nodemailer.createTestAccount((err, account) => {
+        // create reusable transporter object using the default SMTP transport
+        let transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true, // true for 465, false for other ports
+            auth: {
+                user: credentials.gmail.user, // generated ethereal user
+                pass: credentials.gmail.password // generated ethereal password
+            }
+        });
+
+        // setup email data with unicode symbols
+        let mailOptions = {
+            from: '"Fred Foo 👻" <codename.cobweb@gmail.com>', // sender address
+            to: 'cplusplusjs@gmail.com', // list of receivers
+            subject: 'Hello ✔', // Subject line
+            text: 'Hello world?', // plain text body
+            html: '<b>Hello world?</b>' // html body
+        };
+
+        // send mail with defined transport object
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                return console.log(error);
+            }
+            console.log('Message sent: %s', info.messageId);
+            // Preview only available when sending through an Ethereal account
+            console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
+
+            // Message sent: <b658f8ca-6296-ccf4-8306-87d57a0b4321@example.com>
+            // Preview URL: https://ethereal.email/message/WaQKMgKddxQDoou...
+        });
     });
-
-    // setup email data with unicode symbols
-    let mailOptions = {
-        from: '"Fred Foo 👻" <codename.cobweb@gmail.com>', // sender address
-        to: 'cplusplusjs@gmail.com', // list of receivers
-        subject: 'Hello ✔', // Subject line
-        text: 'Hello world?', // plain text body
-        html: '<b>Hello world?</b>' // html body
-    };
-
-    // send mail with defined transport object
-    transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-            return console.log(error);
-        }
-        console.log('Message sent: %s', info.messageId);
-        // Preview only available when sending through an Ethereal account
-        console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
-
-        // Message sent: <b658f8ca-6296-ccf4-8306-87d57a0b4321@example.com>
-        // Preview URL: https://ethereal.email/message/WaQKMgKddxQDoou...
-    });
-});
 }
 
 
-function wrappAxios(){
+function wrappAxios() {
     axios.get('https://api.tvmaze.com/search/shows?q=batman')
-    .then(function (response) {
-        console.log(response.data);
-    })
-    .catch(function (error) {
-        console.log(error);
-    });
+        .then(function (response) {
+            console.log(response.data);
+        })
+        .catch(function (error) {
+            console.log(error);
+        });
 }
 
 
@@ -79,7 +95,6 @@ var handlebars = require('express-handlebars').create({
 app.engine('handlebars', handlebars.engine);
 app.set('view engine', 'handlebars');
 express_handlebars_sections(handlebars);
-
 app.use(express.static(__dirname + '/public'));
 app.use(require('cookie-parser')(credentials.cookieSecret));
 app.use(require('express-session')({
@@ -106,6 +121,12 @@ app.use(function (req, res, next) {
     res.locals.flash = req.session.flash;
     delete req.session.flash;
     next();
+});
+app.use(function (req, res, next) {
+    var cluster = require('cluster');
+    if (cluster.isWorker) console.log('Исполнитель %d получил запрос ',
+        cluster.worker.id);
+        next();
 });
 // Отключить заголовки
 app.disable('x-powered-by');
@@ -226,8 +247,21 @@ app.use(function (err, req, res, next) {
     res.render('500');
 });
 
-app.listen(app.get('port'), function () {
-    console.log('Express запущено в режиме ' + app.get('env') +
-        ' на http://localhost:' + app.get('port') +
-        '; нажмите Ctrl+C для завершения.');
-});
+function startServer() {
+    app.listen(app.get('port'), function () {
+        console.log('Express запущен в режиме ' + app.get('env') +
+            ' на http://localhost:' + app.get('port') +
+            '; нажмите Ctrl+C для завершения.');
+    });
+}
+
+if (require.main === module) {
+    // Приложение запускается непосредственно;
+    // запускаем сервер приложения
+    startServer();
+} else {
+    // Приложение импортируется как модуль
+    // посредством "require":
+    // экспортируем функцию для создания сервера
+    module.exports = startServer;
+}
